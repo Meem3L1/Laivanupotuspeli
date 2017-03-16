@@ -22,8 +22,8 @@ void printMenu() { // Print out the main menu
 void gameLoop() { // Handles the game
 	char choice = '0';
 	bool keep_playing = true;
-	char shots[MAX_RIVI_PITUUS][MAX_RIVI_PITUUS] = { " " }; // Ammukset / osumat
-	char ships[MAX_RIVI_PITUUS][MAX_RIVI_PITUUS] = { 0 }; // Laivat
+	char shots[MAX_Y_SIZE][MAX_X_SIZE] = { " " }; // Ammukset / osumat
+	char ships[MAX_Y_SIZE][MAX_Y_SIZE] = { 0 }; // Laivat
 	do {
 		printMenu();
 		do {
@@ -48,8 +48,8 @@ void gameLoop() { // Handles the game
 			// Pelaa
 			bool jatka_ampumista = true;
 			do {
-				printGameStatus(shots, MAX_RIVI_PITUUS, MAX_RIVI_PITUUS);
-				shoot(shots, MAX_RIVI_PITUUS, jatka_ampumista);
+				printGameStatus(shots, MAX_Y_SIZE, MAX_X_SIZE);
+				shoot(shots, MAX_X_SIZE, jatka_ampumista);
 			} while (jatka_ampumista);
 		}
 		else if (choice == '3') {
@@ -61,12 +61,19 @@ void gameLoop() { // Handles the game
 	} while (keep_playing);
 }
 // --- //
-void askDefaultShips(char ships[][MAX_RIVI_PITUUS]) {
+void askDefaultShips(char ships[][MAX_X_SIZE]) {
 	Ship laivat[4];
 	short shipIndex = 0;
 	char coords[3]; // +1
 	char *shipNames[4] = { "kahden", "kolmen", "neljan", "viiden" };
 	char shipChar = '5';
+	bool suunta_oikein = false;
+
+	for (int y = 0; y < MAX_Y_SIZE; y++) {
+		for (int x = 0; x < MAX_X_SIZE; x++) {
+			ships[y][x] = ' ';
+		}
+	}
 
 	for (int i = 5; i > 1; i--) {
 		do {
@@ -75,23 +82,79 @@ void askDefaultShips(char ships[][MAX_RIVI_PITUUS]) {
 			clearInput();
 			charcharToCoord(coords[0], laivat[shipIndex].y);
 			charnumToCoord(coords[1], laivat[shipIndex].x);
-			if (laivat[shipIndex].x < 0 || laivat[shipIndex].x >= MAX_RIVI_PITUUS || laivat[shipIndex].y < 0 || laivat[shipIndex].y >= MAX_RIVI_PITUUS) {
+			if (laivat[shipIndex].x < 0 || laivat[shipIndex].x >= MAX_X_SIZE || laivat[shipIndex].y < 0 || laivat[shipIndex].y >= MAX_Y_SIZE) {
 				cout << "Virheelliset koordinaatit! ";
 			}
-		} while (laivat[shipIndex].x < 0 || laivat[shipIndex].x >= MAX_RIVI_PITUUS || laivat[shipIndex].y < 0 || laivat[shipIndex].y >= MAX_RIVI_PITUUS);
-		shipChar = i + 48; // ascii muunnos
-		laivat[shipIndex].size = i;
-		ships[(laivat[shipIndex].y)][(laivat[shipIndex].x)] = shipChar;
-		cout << "Anna suunta ( p(ohjoinen) / i(ta) / e(tela) / l(ansi) ): ";
-		cin >> laivat[shipIndex].dir;
-		clearInput();
+		} while (laivat[shipIndex].x < 0 || laivat[shipIndex].x >= MAX_X_SIZE || laivat[shipIndex].y < 0 || laivat[shipIndex].y >= MAX_Y_SIZE);
+		shipChar = i + 48; // ascii muunnos -> laivan merkki
+		laivat[shipIndex].size = i; // laivan koko
+		do {
+			cout << "Anna suunta ( p(ohjoinen) / i(ta) / e(tela) / l(ansi) ): ";
+			cin >> laivat[shipIndex].dir; // suunta
+			clearInput();
+			if (laivat[shipIndex].dir == 'p' || laivat[shipIndex].dir == 'P') { // Pohjoinen
+				short k = laivat[shipIndex].y + 1 - laivat[shipIndex].size;
+				if (k >= 0 && k <= MAX_Y_SIZE) {
+					suunta_oikein = true;
+				} else { 
+					suunta_oikein = false; 
+				}
+			} else if (laivat[shipIndex].dir == 'i' || laivat[shipIndex].dir == 'I') { // Itä
+				short k = laivat[shipIndex].x + 1 + laivat[shipIndex].size;
+				if (k >= 0 && k <= MAX_Y_SIZE) {
+					suunta_oikein = true;
+				}
+				else {
+					suunta_oikein = false;
+				}
+			} else if (laivat[shipIndex].dir == 'e' || laivat[shipIndex].dir == 'E') { // Etelä
+				short k = laivat[shipIndex].y + 1 + laivat[shipIndex].size;
+				if (k >= 0 && k <= MAX_Y_SIZE) {
+					suunta_oikein = true;
+				}
+				else {
+					suunta_oikein = false;
+				}
+			} else if (laivat[shipIndex].dir == 'l' || laivat[shipIndex].dir == 'L') { // Länsi
+				short k = laivat[shipIndex].x + 1 - laivat[shipIndex].size;
+				if (k >= 0 && k <= MAX_Y_SIZE) {
+					suunta_oikein = true;
+				}
+				else {
+					suunta_oikein = false;
+				}
+			}
+			if (!suunta_oikein) {
+				cout << "Virhe! ";
+			}
+		} while (!suunta_oikein);
 		cout << endl;
+		//
+		if (laivat[shipIndex].dir == 'p' || laivat[shipIndex].dir == 'P') { // Pohjoinen
+			for (int z = 0; z < laivat[shipIndex].size; z++) {
+				ships[(laivat[shipIndex].y - z)][(laivat[shipIndex].x)] = shipChar;
+			}
+		} else if (laivat[shipIndex].dir == 'l' || laivat[shipIndex].dir == 'L') { // Länsi
+			for (int z = 0; z < laivat[shipIndex].size; z++) {
+				ships[(laivat[shipIndex].y)][(laivat[shipIndex].x - z)] = shipChar;
+			}
+		} else if (laivat[shipIndex].dir == 'e' || laivat[shipIndex].dir == 'E') { // Etelä
+			for (int z = 0; z < laivat[shipIndex].size; z++) {
+				ships[(laivat[shipIndex].y + z)][(laivat[shipIndex].x)] = shipChar;
+			}
+		} else {
+			for (int z = 0; z < laivat[shipIndex].size; z++) { // Itä
+				ships[(laivat[shipIndex].y)][(laivat[shipIndex].x + z)] = shipChar;
+			}
+		}
+		//
 		shipIndex++;
+		suunta_oikein = false;
 	}
-	printGameStatus(ships, MAX_RIVI_PITUUS, MAX_RIVI_PITUUS);
+	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE);
 }
 // --- //
-void printGameStatus(char shotsArray[][MAX_RIVI_PITUUS], short y, short x) {
+void printGameStatus(char shotsArray[][MAX_X_SIZE], short y, short x) {
 	cout << "Pelitilanne on seuraava:" << endl << endl;
 	// Ylärivin numerot
 	cout << "    ";
@@ -125,7 +188,7 @@ void printGameStatus(char shotsArray[][MAX_RIVI_PITUUS], short y, short x) {
 	cout << endl << endl;
 }
 // --- //
-void shoot(char shots[][MAX_RIVI_PITUUS], short cols, bool &jatka) {
+void shoot(char shots[][MAX_X_SIZE], short cols, bool &jatka) {
 	char coords[3]; // -1
 	short x, y;
 	do {
@@ -138,11 +201,11 @@ void shoot(char shots[][MAX_RIVI_PITUUS], short cols, bool &jatka) {
 			jatka = false;
 			break;
 		}
-		if (x < 0 || x >= MAX_RIVI_PITUUS || y < 0 || y >= MAX_RIVI_PITUUS) {
+		if (x < 0 || x >= MAX_X_SIZE || y < 0 || y >= MAX_Y_SIZE) {
 			cout << "Virheelliset koordinaatit! ";
 			x = y = -1;
 		}
-	} while (x < 0 || x >= MAX_RIVI_PITUUS || y < 0 || y >= MAX_RIVI_PITUUS);
+	} while (x < 0 || x >= MAX_X_SIZE || y < 0 || y >= MAX_Y_SIZE);
 	// --- //
 	if (jatka) {
 		cout << x << " " << y << endl;
@@ -155,34 +218,14 @@ void charnumToCoord(char &old, short &uusi) {
 }
 // --- //
 void charcharToCoord(char &old, short &uusi) {
-	if (old == 'a' || old == 'A') {
-		uusi = 0;
-	}
-	else if (old  == 'b' || old == 'B') {
-		uusi = 1;
-	}
-	else if (old == 'c' || old == 'C') {
-		uusi = 2;
-	}
-	else if (old == 'd' || old == 'D') {
-		uusi = 3;
-	}
-	else if (old == 'e' || old == 'E') {
-		uusi = 4;
-	}
-	else if (old == 'f' || old == 'F') {
-		uusi = 5;
-	}
-	else if (old == 'g' || old == 'G') {
-		uusi = 6;
-	}
-	else if (old == 'h' || old == 'H') {
-		uusi = 7;
-	}
-	else if (old == 'i' || old == 'I') {
-		uusi = 8;
-	}
-	else if (old == 'j' || old == 'J') {
-		uusi = 9;
-	}
+	if (old == 'a' || old == 'A') { uusi = 0; }
+	else if (old  == 'b' || old == 'B') { uusi = 1; }
+	else if (old == 'c' || old == 'C') { uusi = 2; }
+	else if (old == 'd' || old == 'D') { uusi = 3; }
+	else if (old == 'e' || old == 'E') { uusi = 4; }
+	else if (old == 'f' || old == 'F') { uusi = 5; }
+	else if (old == 'g' || old == 'G') { uusi = 6; }
+	else if (old == 'h' || old == 'H') { uusi = 7; }
+	else if (old == 'i' || old == 'I') { uusi = 8; }
+	else if (old == 'j' || old == 'J') { uusi = 9; }
 }
