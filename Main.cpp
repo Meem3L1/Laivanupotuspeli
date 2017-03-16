@@ -11,16 +11,7 @@ using namespace std;
 bool laivatSyotetty = false;
 
 int main() {
-	// --- //
-	char menu;
-	printMenu();
-	menu = menuChoice();
-	if (menu == 'l' || menu == 'L') {
-		return 0; // Exit the program
-	}
-	printEmptyArea();
-	askDefaultShips();
-	// --- //
-	system("pause");
+
+	gameLoop();
 	return 0;
 }
