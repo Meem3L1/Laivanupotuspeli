@@ -79,12 +79,13 @@ void gameLoop() { // Handles the game
 		} else if (choice == '2' && laivat_ok && !game_finished) {
 			// Pelaa
 			bool jatka_ampumista = true;
+			bool cheat_used = false;
 			do {
-				printGameStatus(shots, MAX_Y_SIZE, MAX_X_SIZE);
-				shoot(shots, ships, defShips, MAX_X_SIZE, jatka_ampumista, score);
+				//printGameStatus(shots, MAX_Y_SIZE, MAX_X_SIZE);
+				shoot(shots, ships, defShips, MAX_X_SIZE, jatka_ampumista, cheat_used, score);
 				if (score == DEF_SHIP_COUNT) {
 					game_finished = true;
-					printGameStatus(shots, MAX_Y_SIZE, MAX_X_SIZE);
+					printGameStatus(shots, MAX_Y_SIZE, MAX_X_SIZE, false);
 					cout << "Onnittelut! Upotit kaikki vihollisen laivat ja voitit pelin!" << endl;
 					cout << "------------------------------------------------------------" << endl;
 					cout << "Tekija: Emil Pirinen (2017)" << endl;
@@ -119,7 +120,7 @@ void askDefaultShips(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *d
 	char *shipNames[4] = { "kahden", "kolmen", "neljan", "viiden" };
 	bool suunta_oikein = false;
 	//
-	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE);
+	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE, false);
 	for (int i = 5; i > 1; i--) {
 		bool isValid = false;
 		do {
@@ -127,7 +128,7 @@ void askDefaultShips(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *d
 			cin >> coords;
 			clearInput();
 			validCoords = muunnaAmpumiskoordinaatit(coords, &defShips[shipIndex].y, &defShips[shipIndex].x);
-			if (validCoords == E_KOORD_VAARIN || validCoords == E_KOORD_POISTU || ships[defShips[shipIndex].y][defShips[shipIndex].x] != ' ') {
+			if (validCoords == E_KOORD_VAARIN || validCoords == E_KOORD_POISTU || validCoords == E_KOORD_CHEAT || ships[defShips[shipIndex].y][defShips[shipIndex].x] != ' ') {
 				cout << "Virheelliset koordinaatit! ";
 				isValid = false;
 			} else {
@@ -152,18 +153,22 @@ void askDefaultShips(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *d
 		shipIndex++;
 		suunta_oikein = false;
 	}
-	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE);
+	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE, false);
 }
 /*--------------------------------------------------
 *
 * nimi: printGameStatus
 * toiminta: Tulostaa pelialueen sekä pelitilanteen
-* parametri(t): taulukko, y, x
+* parametri(t): taulukko, y, x, useCheat
 * paluuarvo(t): -
 *
 *--------------------------------------------------*/
-void printGameStatus(char taulukko[][MAX_X_SIZE], short y, short x) {
-	cout << "Pelitilanne on seuraava:" << endl << endl;
+void printGameStatus(char taulukko[][MAX_X_SIZE], short y, short x, bool useCheat) {
+	if (useCheat) {
+		cout << endl << "Laivat sijaitsevat seuraavissa paikoissa:" << endl << endl;
+	} else {
+		cout << "Pelitilanne on seuraava:" << endl << endl;
+	}
 	// Ylärivin numerot
 	cout << "    ";
 	for (int i = 1; i <= x; i++) {
@@ -203,10 +208,13 @@ void printGameStatus(char taulukko[][MAX_X_SIZE], short y, short x) {
 * paluuarvo(t): -
 *
 *--------------------------------------------------*/
-void shoot(char shots[][MAX_X_SIZE], char ships[][MAX_X_SIZE], Ship *laivat, short cols, bool &jatka, short &score) {
+void shoot(char shots[][MAX_X_SIZE], char ships[][MAX_X_SIZE], Ship *laivat, short cols, bool &jatka, bool &cheat_used, short &score) {
 	string coords;
 	short validCoord;
 	short x, y;
+	if (!cheat_used) {
+		printGameStatus(shots, MAX_Y_SIZE, MAX_X_SIZE, false);
+	}
 	do {
 		cout << "Anna ampumiskoordinaatit: ";
 		cin >> coords;
@@ -216,12 +224,17 @@ void shoot(char shots[][MAX_X_SIZE], char ships[][MAX_X_SIZE], Ship *laivat, sho
 			cout << "Virheelliset koordinaatit! ";
 			x = y = -1;
 		} else if (validCoord == E_KOORD_POISTU) {
+			cheat_used = false;
 			jatka = false;
+		} else if (validCoord == E_KOORD_CHEAT) {
+			paljastaLaivat(ships);
+			cheat_used = true;
 		}
 	} while (validCoord == E_KOORD_VAARIN);
 	// --- //
-	if (jatka) {
+	if (jatka && validCoord != E_KOORD_CHEAT) {
 		// Osuma-aliohjelma
+		cheat_used = false;
 		tarkistaOsuma(ships, shots, laivat, y, x, score);
 	}
 }
@@ -238,6 +251,9 @@ short muunnaAmpumiskoordinaatit(string coord, short *row, short *col) {
 	if (coord[0] == 'P' || coord[0] == 'p') {
 		*row = *col = -1;
 		return E_KOORD_POISTU;
+	}
+	else if (coord[0] == '\\' && coord[1] == '@') {
+		return E_KOORD_CHEAT;
 	} else if ((isalpha(coord[0])) && isdigit(coord[1]) && isdigit(coord[2])) {
 		if (isupper(coord[0])) {
 			*row = static_cast<int>(coord[0]) - 65;
@@ -400,7 +416,7 @@ void tarkistaOsuma(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *lai
 	coords += static_cast<char>(x + 49);
 	//
 	if (shots[y][x] == OSUMA || shots[y][x] == HUTI || shots[y][x] == UPONNUT) {
-		cout << "** Olet jo ampunut tahan koordinaattiin! (" << coords << ") **" << endl << endl;
+		cout << endl << "** Olet jo ampunut tahan koordinaattiin! (" << coords << ") **" << endl << endl;
 	} else if (ships[y][x] == '5' || ships[y][x] == '4' || ships[y][x] == '3' || ships[y][x] == '2') {
 		short k;
 		if (ships[y][x] == '5') { k = 0; }
@@ -413,14 +429,14 @@ void tarkistaOsuma(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *lai
 			// Upota laiva
 			score++;
 			upotaLaiva(shots, laivat[k].y, laivat[k].x, laivat[k].dir, laivat[k].size);
-			cout << "Laukaus kohtaan " << coords << " upotti laivan." << endl << endl;
+			cout << endl << "Laukaus kohtaan " << coords << " upotti laivan." << endl << endl;
 		} else {
 			shots[y][x] = OSUMA;
-			cout << "Laukaus kohtaan " << coords << " osui laivaan." << endl << endl;
+			cout << endl << "Laukaus kohtaan " << coords << " osui laivaan." << endl << endl;
 		}
 	} else {
 		shots[y][x] = HUTI;
-		cout << "Laukaus kohtaan " << coords << " ei osunut." << endl << endl;
+		cout << endl << "Laukaus kohtaan " << coords << " ei osunut." << endl << endl;
 	}
 }
 /*--------------------------------------------------
@@ -449,4 +465,15 @@ void upotaLaiva(char shots[][MAX_X_SIZE], short y, short x, char dir, short size
 			shots[y][x + z] = UPONNUT;
 		}
 	}
+}
+/*--------------------------------------------------
+*
+* nimi: paljastaLaivat
+* toiminta: "Huijauskoodi", joka paljastaa laivojen sijainnin
+* parametri(t): ships
+* paluuarvo(t): -
+*
+*--------------------------------------------------*/
+void paljastaLaivat(char ships[][MAX_X_SIZE]) {
+	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE, true);
 }
