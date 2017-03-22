@@ -24,6 +24,7 @@ struct Ship {
 	short size;
 	short hits = 0;
 	char dir;
+	char shipChar;
 };
 
 // PROTOTYPES
@@ -35,7 +36,7 @@ void printGameStatus(char taulukko[][MAX_X_SIZE], short y, short x);
 void shoot(char shots[][MAX_X_SIZE], char ships[][MAX_X_SIZE], Ship *laivat, short cols, bool &jatka, short &score);
 short muunnaAmpumiskoordinaatit(std::string coord, short *row, short *col);
 void nollaaLaivatJaAmmukset(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *defShips, short laivatCount, short *score);
-bool tarkistaLaivanSuunta(char dir, short y, short x, short size);
+bool tarkistaLaivanSuunta(char ships[][MAX_X_SIZE], char dir, short y, short x, short size);
 void syotaLaivaKoordinaatistoon(char ships[][MAX_X_SIZE], short y, short x, char dir, short size, char shipChar);
 void tarkistaOsuma(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short y, short x, short &score);
 void upotaLaiva(char ships[][MAX_X_SIZE], short y, short x, char dir, short size);

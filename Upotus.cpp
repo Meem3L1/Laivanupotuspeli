@@ -53,6 +53,7 @@ void gameLoop() { // Handles the game
 	Ship defShips[DEF_SHIP_COUNT]; // Default ships
 	do {
 		printMenu();
+		bool isValid = false;
 		do {
 			choice = '0';
 			cout << "Valintasi: ";
@@ -60,8 +61,11 @@ void gameLoop() { // Handles the game
 			clearInput();
 			if (choice != '1' && choice != '2' && choice != '3' && choice != 'L' && choice != 'l') {
 				cout << "Virhe! ";
+				isValid = false;
+			} else {
+				isValid = true;
 			}
-		} while (choice != '1' && choice != '2' && choice != '3' && choice != 'L' && choice != 'l');
+		} while (!isValid);
 		cout << endl;
 		// ===
 		// Valikko
@@ -113,34 +117,37 @@ void askDefaultShips(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *d
 	short validCoords;
 	string coords;
 	char *shipNames[4] = { "kahden", "kolmen", "neljan", "viiden" };
-	char shipChar = '5';
 	bool suunta_oikein = false;
 	//
 	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE);
 	for (int i = 5; i > 1; i--) {
+		bool isValid = false;
 		do {
 			cout << "Anna " << shipNames[i - 2] << " pituisen laivan alkupiste: ";
 			cin >> coords;
 			clearInput();
 			validCoords = muunnaAmpumiskoordinaatit(coords, &defShips[shipIndex].y, &defShips[shipIndex].x);
-			if (validCoords == E_KOORD_VAARIN || validCoords == E_KOORD_POISTU) {
+			if (validCoords == E_KOORD_VAARIN || validCoords == E_KOORD_POISTU || ships[defShips[shipIndex].y][defShips[shipIndex].x] != ' ') {
 				cout << "Virheelliset koordinaatit! ";
+				isValid = false;
+			} else {
+				isValid = true;
 			}
-		} while (validCoords == E_KOORD_VAARIN || validCoords == E_KOORD_POISTU);
-		shipChar = i + 48; // ascii muunnos -> laivan merkki
+		} while (!isValid);
+		defShips[shipIndex].shipChar = i + 48; // ascii muunnos -> laivan merkki
 		defShips[shipIndex].size = i; // laivan koko
 		do {
 			cout << "Anna suunta ( p(ohjoinen) / i(ta) / e(tela) / l(ansi) ): ";
 			cin >> defShips[shipIndex].dir; // suunta
 			clearInput();
-			suunta_oikein = tarkistaLaivanSuunta(defShips[shipIndex].dir, defShips[shipIndex].y, defShips[shipIndex].x, defShips[shipIndex].size);
+			suunta_oikein = tarkistaLaivanSuunta(ships, defShips[shipIndex].dir, defShips[shipIndex].y, defShips[shipIndex].x, defShips[shipIndex].size);
 			if (!suunta_oikein) {
 				cout << "Virhe! ";
 			}
 		} while (!suunta_oikein);
 		cout << endl;
 		//
-		syotaLaivaKoordinaatistoon(ships, defShips[shipIndex].y, defShips[shipIndex].x, defShips[shipIndex].dir, defShips[shipIndex].size, shipChar);
+		syotaLaivaKoordinaatistoon(ships, defShips[shipIndex].y, defShips[shipIndex].x, defShips[shipIndex].dir, defShips[shipIndex].size, defShips[shipIndex].shipChar);
 		//
 		shipIndex++;
 		suunta_oikein = false;
@@ -295,32 +302,56 @@ void nollaaLaivatJaAmmukset(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], 
 * paluuarvo(t): boolean (true OR false)
 *
 *--------------------------------------------------*/
-bool tarkistaLaivanSuunta(char dir, short y, short x, short size) {
+bool tarkistaLaivanSuunta(char ships[][MAX_X_SIZE], char dir, short y, short x, short size) {
 	if (dir == 'p' || dir == 'P') { // Pohjoinen
 		short k = y + 1 - size;
 		if (k >= 0 && k <= MAX_Y_SIZE) {
-			return true;
+			bool valid = true;
+			for (int i = 0; i < size; i++) {
+				if (ships[y - i][x] != ' ') {
+					valid = false;
+					break; // No need to check more
+				}
+			} return valid;
 		} else {
 			return false;
 		}
 	} else if (dir == 'i' || dir == 'I') { // Itä
 		short k = x + size;
 		if (k >= 0 && k <= MAX_X_SIZE) {
-			return true;
+			bool valid = true;
+			for (int i = 0; i < size; i++) {
+				if (ships[y][x + i] != ' ') {
+					valid = false;
+					break; // No need to check more
+				}
+			} return valid;
 		} else {
 			return false;
 		}
 	} else if (dir == 'e' || dir == 'E') { // Etelä
 		short k = y + size;
 		if (k >= 0 && k <= MAX_Y_SIZE) {
-			return true;
+			bool valid = true;
+			for (int i = 0; i < size; i++) {
+				if (ships[y + i][x] != ' ') {
+					valid = false;
+					break; // No need to check more
+				}
+			} return valid;
 		} else {
 			return false;
 		}
 	} else if (dir == 'l' || dir == 'L') { // Länsi
 		short k = x + 1 - size;
 		if (k >= 0 && k <= MAX_X_SIZE) {
-			return true;
+			bool valid = true;
+			for (int i = 0; i < size; i++) {
+				if (ships[y][x - i] != ' ') {
+					valid = false;
+					break; // No need to check more
+				}
+			} return valid;
 		} else {
 			return false;
 		}
