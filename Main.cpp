@@ -9,9 +9,14 @@
 #include <algorithm>
 using namespace std;
 
-// Variables
-bool laivatSyotetty = false;
-
+/*--------------------------------------------------
+*
+* nimi: main
+* toiminta: MAIN-loop
+* parametri(t): -
+* paluuarvo(t): -
+*
+*--------------------------------------------------*/
 int main() {
 
 	gameLoop();
