@@ -3,4 +3,4 @@ Ohjelmointikielten jatkokurssin harjoitusyö. C++
 
 Copyright Emil Pirinen 2017
 
--- Kuva tulossa myöhemmin...
+![Screenshot](http://i.imgur.com/0Li2bXL.png)
