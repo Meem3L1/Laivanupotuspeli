@@ -2,6 +2,9 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <ctime>
+#include <iostream>
+#include <fstream>
 using namespace std;
 /*--------------------------------------------------
 *
@@ -31,6 +34,8 @@ void printMenu() { // Prints out the main menu
 	cout << "1) Syota laivat" << endl;
 	cout << "2) Pelaa" << endl;
 	cout << "3) Arvo laivojen sijainnit" << endl;
+	cout << "4) Tallenna pelitilanne" << endl;
+	cout << "5) Lataa pelitilanne" << endl;
 	cout << "L) Lopeta" << endl;
 	cout << endl;
 }
@@ -42,7 +47,7 @@ void printMenu() { // Prints out the main menu
 * paluuarvo(t): -
 *
 *--------------------------------------------------*/
-void gameLoop() { // Handles the game
+void gameLoop() { // Handles the game # MAIN LOOP
 	char choice = '0';
 	short score = 0;
 	bool laivat_ok = false;
@@ -59,7 +64,7 @@ void gameLoop() { // Handles the game
 			cout << "Valintasi: ";
 			cin >> choice;
 			clearInput();
-			if (choice != '1' && choice != '2' && choice != '3' && choice != 'L' && choice != 'l') {
+			if (choice != '1' && choice != '2' && choice != '3' && choice != '4' && choice != '5' && choice != 'L' && choice != 'l') {
 				cout << "Virhe! ";
 				isValid = false;
 			} else {
@@ -94,6 +99,25 @@ void gameLoop() { // Handles the game
 			} while (jatka_ampumista && !game_finished);
 		} else if (choice == '3') {
 			// Arvo laivojen sijainnit
+			nollaaLaivatJaAmmukset(ships, shots, defShips, DEF_SHIP_COUNT, &score);
+			arvoLaivojenSijainti(ships, defShips);
+			laivat_ok = true;
+			game_finished = false;
+		} else if (choice == '4') {
+			// Tallenna pelitilanne
+			if (laivat_ok && !game_finished) {
+				tallennaPelitilanne(ships, shots, defShips, score);
+			} else {
+				cout << "VIRHE! Et ole aloittanut uutta pelia tai edellinen pelisi on paattynyt!" << endl;
+			}
+		} else if (choice == '5') {
+			// Lataa pelitilanne
+			bool loadFromFile = lataaPelitilanne(ships, shots, defShips, score);
+			if (loadFromFile) {
+				cout << "Pelitilanne ladattu!" << endl;
+				game_finished = false;
+				laivat_ok = true;
+			}
 		} else if (choice == 'l' || choice == 'L') {
 			keep_playing = false; // exit the gameLoop
 		} else if (!laivat_ok) {
@@ -115,28 +139,29 @@ void gameLoop() { // Handles the game
 *--------------------------------------------------*/
 void askDefaultShips(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *defShips) {
 	short shipIndex = 0;
-	short validCoords;
-	string coords;
 	char *shipNames[4] = { "kahden", "kolmen", "neljan", "viiden" };
-	bool suunta_oikein = false;
-	//
 	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE, false);
 	for (int i = 5; i > 1; i--) {
+		bool validPlace = false;
+		short validCoords = 0;
 		bool isValid = false;
+		bool suunta_oikein = false;
+		string coords;
+		defShips[shipIndex].shipChar = i + 48; // ascii muunnos -> laivan merkki
+		defShips[shipIndex].size = i; // laivan koko
 		do {
 			cout << "Anna " << shipNames[i - 2] << " pituisen laivan alkupiste: ";
 			cin >> coords;
 			clearInput();
-			validCoords = muunnaAmpumiskoordinaatit(coords, &defShips[shipIndex].y, &defShips[shipIndex].x);
-			if (validCoords == E_KOORD_VAARIN || validCoords == E_KOORD_POISTU || validCoords == E_KOORD_CHEAT || ships[defShips[shipIndex].y][defShips[shipIndex].x] != ' ') {
+			validCoords = muunnaKoordinaatit(coords, &defShips[shipIndex].y, &defShips[shipIndex].x);
+			validPlace = tarkistaAloituspiste(ships, defShips[shipIndex].y, defShips[shipIndex].x, defShips[shipIndex].size);
+			if (!validPlace || validCoords == E_KOORD_VAARIN || validCoords == E_KOORD_POISTU || validCoords == E_KOORD_CHEAT || ships[defShips[shipIndex].y][defShips[shipIndex].x] != ' ') {
 				cout << "Virheelliset koordinaatit! ";
 				isValid = false;
 			} else {
 				isValid = true;
 			}
-		} while (!isValid);
-		defShips[shipIndex].shipChar = i + 48; // ascii muunnos -> laivan merkki
-		defShips[shipIndex].size = i; // laivan koko
+		} while (!isValid || !validPlace);
 		do {
 			cout << "Anna suunta ( p(ohjoinen) / i(ta) / e(tela) / l(ansi) ): ";
 			cin >> defShips[shipIndex].dir; // suunta
@@ -151,7 +176,6 @@ void askDefaultShips(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *d
 		syotaLaivaKoordinaatistoon(ships, defShips[shipIndex].y, defShips[shipIndex].x, defShips[shipIndex].dir, defShips[shipIndex].size, defShips[shipIndex].shipChar);
 		//
 		shipIndex++;
-		suunta_oikein = false;
 	}
 	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE, false);
 }
@@ -219,7 +243,7 @@ void shoot(char shots[][MAX_X_SIZE], char ships[][MAX_X_SIZE], Ship *laivat, sho
 		cout << "Anna ampumiskoordinaatit: ";
 		cin >> coords;
 		clearInput();
-		validCoord = muunnaAmpumiskoordinaatit(coords, &y, &x);
+		validCoord = muunnaKoordinaatit(coords, &y, &x);
 		if (validCoord == E_KOORD_VAARIN) {
 			cout << "Virheelliset koordinaatit! ";
 			x = y = -1;
@@ -240,19 +264,20 @@ void shoot(char shots[][MAX_X_SIZE], char ships[][MAX_X_SIZE], Ship *laivat, sho
 }
 /*--------------------------------------------------
 *
-* nimi: muunnaAmpumiskoordinaatit
+* nimi: muunnaKoordinaatit
 * toiminta: Muuntaa syötetyt koordinaatit indeksimuotoon
 * parametri(t): coord, *row, *row
 * paluuarvo(t): *row, *col
 *
 *--------------------------------------------------*/
-short muunnaAmpumiskoordinaatit(string coord, short *row, short *col) {
+short muunnaKoordinaatit(string coord, short *row, short *col) {
 	coord.erase(remove_if(coord.begin(), coord.end(), isspace), coord.end());
 	if (coord[0] == 'P' || coord[0] == 'p') {
 		*row = *col = -1;
 		return E_KOORD_POISTU;
 	}
 	else if (coord[0] == '\\' && coord[1] == '@') {
+		*row = *col = -1;
 		return E_KOORD_CHEAT;
 	} else if ((isalpha(coord[0])) && isdigit(coord[1]) && isdigit(coord[2])) {
 		if (isupper(coord[0])) {
@@ -305,16 +330,17 @@ void nollaaLaivatJaAmmukset(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], 
 	for (int i = 0; i < laivatCount; i++) {
 		laivat[i].y = NULL;
 		laivat[i].x = NULL;
-		laivat[i].dir = NULL;
+		laivat[i].dir = '0';
 		laivat[i].size = NULL;
 		laivat[i].hits = 0;
+		laivat[i].shipChar = '0';
 	}
 }
 /*--------------------------------------------------
 *
 * nimi: tarkistaLaivanSuunta
 * toiminta: Tarkistaa voidaanko laiva suunnata haluttuun suuntaan
-* parametri(t): dir, y, x, size
+* parametri(t): ships, dir, y, x, size
 * paluuarvo(t): boolean (true OR false)
 *
 *--------------------------------------------------*/
@@ -476,4 +502,165 @@ void upotaLaiva(char shots[][MAX_X_SIZE], short y, short x, char dir, short size
 *--------------------------------------------------*/
 void paljastaLaivat(char ships[][MAX_X_SIZE]) {
 	printGameStatus(ships, MAX_Y_SIZE, MAX_X_SIZE, true);
+}
+/*--------------------------------------------------
+*
+* nimi: arvoLaivojenSijainti
+* toiminta: Arpoo laivojen sijainnin
+* parametri(t): ships
+* paluuarvo(t): -
+*
+*--------------------------------------------------*/
+void arvoLaivojenSijainti(char ships[][MAX_X_SIZE], Ship *defShips) {
+	srand(time(NULL));
+	syotaLaivanTiedot(defShips, 0, NULL, NULL, 5, NULL, NULL, '5');
+	syotaLaivanTiedot(defShips, 1, NULL, NULL, 4, NULL, NULL, '4');
+	syotaLaivanTiedot(defShips, 2, NULL, NULL, 3, NULL, NULL, '3');
+	syotaLaivanTiedot(defShips, 3, NULL, NULL, 2, NULL, NULL, '2');
+	//
+	for (int i = 0; i < DEF_SHIP_COUNT; i++) {
+		bool validStart = false;
+		bool validDir = false;
+		do {
+			defShips[i].x = (rand() % MAX_X_SIZE);
+			defShips[i].y = (rand() % MAX_Y_SIZE);
+			validStart = tarkistaAloituspiste(ships, defShips[i].y, defShips[i].x, defShips[i].size);
+			short x = (rand() % 4);
+			if (x == 0) {
+				defShips[i].dir = 'p';
+			} else if (x == 1) {
+				defShips[i].dir = 'i';
+			} else if (x == 2) {
+				defShips[i].dir = 'e';
+			} else {
+				defShips[i].dir = 'l';
+			}
+			validDir = tarkistaLaivanSuunta(ships, defShips[i].dir, defShips[i].y, defShips[i].x, defShips[i].size);
+		} while (!validStart || !validDir);
+		syotaLaivaKoordinaatistoon(ships, defShips[i].y, defShips[i].x, defShips[i].dir, defShips[i].size, defShips[i].shipChar);
+	}
+	cout << "Laivojen sijainnit arvottu!" << endl;
+}
+/*--------------------------------------------------
+*
+* nimi: tarkistaAloituspiste
+* toiminta: Tarkistaa laivan syöttämisen aloituspisteen kelvollisuuden
+* parametri(t): ships
+* paluuarvo(t): -
+*
+*--------------------------------------------------*/
+bool tarkistaAloituspiste(char ships[][MAX_X_SIZE], short y, short x, short size) {
+	bool p = tarkistaLaivanSuunta(ships, 'p', y, x, size);
+	bool i = tarkistaLaivanSuunta(ships, 'i', y, x, size);
+	bool e = tarkistaLaivanSuunta(ships, 'e', y, x, size);
+	bool l = tarkistaLaivanSuunta(ships, 'l', y, x, size);
+	//
+	if (p || i || e || l) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+/*--------------------------------------------------
+*
+* nimi: tallennaPelitilanne
+* toiminta: Tallentaa pelitilanteen erilliseen tekstitiedostoon
+* parametri(t): ships, shots
+* paluuarvo(t): -
+*
+*--------------------------------------------------*/
+void tallennaPelitilanne(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short score) {
+	ofstream coordsToFile("pelitilanne.txt", ios::out);
+	if (!coordsToFile) {
+		cerr << "VIRHE! Tiedostoa ei voi muokata tai sita ei voitu luoda!" << endl;
+	} else {
+		coordsToFile << "# === PELIALUE ===" << endl;
+		coordsToFile << "X:" << MAX_X_SIZE << endl;
+		coordsToFile << "Y:" << MAX_Y_SIZE << endl;
+		coordsToFile << "# === TILASTOT ===" << endl;
+		coordsToFile << "Upotetut:" << score << endl;
+		coordsToFile << "# === LAIVATIEDOT === (y, x, size, hits, dir, shipchar)" << endl;
+		for (int i = 0; i < DEF_SHIP_COUNT; i++) {
+			coordsToFile << i << ":" << laivat[i].y << "." << laivat[i].x << "." << laivat[i].size << "." << laivat[i].hits << "." << laivat[i].dir << "." << laivat[i].shipChar << endl;
+		}
+		coordsToFile << "# === SHOTS ===" << endl;
+		for (int y = 0; y < MAX_Y_SIZE; y++) {
+			for (int x = 0; x < MAX_X_SIZE; x++) {
+				coordsToFile << shots[y][x] << ".";
+			}
+			coordsToFile << endl;
+		}
+		cout << "Pelitilanne tallennettu!" << endl;
+	}
+}
+/*--------------------------------------------------
+*
+* nimi: lataaPelitilanne
+* toiminta: Lataa pelitilanteen erillisestä tekstitiedostosta
+* parametri(t): -
+* paluuarvo(t): ships, shots
+*
+*--------------------------------------------------*/
+bool lataaPelitilanne(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short &score) {
+	ifstream coordsFromFile("pelitilanne.txt", ios::in);
+	if (!coordsFromFile) {
+		cerr << "Tallennettua pelia ei voitu avata tai tiedostoa ei loydy!" << endl;
+		return false;
+	} else {
+		nollaaLaivatJaAmmukset(ships, shots, laivat, DEF_SHIP_COUNT, &score);
+		string line;
+		short row = 1;
+		while (getline(coordsFromFile, line))
+		{
+			if (row == 5) {
+				score = static_cast<short>((line[9]) - 48);
+			}
+			if (row >= 7 && row <= 10) {
+				//syotaLaivanTiedot(laivat, line[0], line[2], line[4], line[6], line[8], static_cast<char>(line[10]), static_cast<char>(line[12]));
+				syotaLaivanTiedot(laivat, static_cast<short>((line[0])-48), static_cast<short>((line[2]) - 48), static_cast<short>((line[4]) - 48), static_cast<short>((line[6]) - 48), static_cast<short>((line[8]) - 48), static_cast<char>(line[10]), static_cast<char>(line[12]));
+			}
+			if (row >= 12) {
+				short y = row - 12;
+				short loc = 0;
+				for (int i = 0; i < MAX_Y_SIZE; i++) {
+					shots[y][i] = line[loc];
+					loc = loc + 2;
+				}
+			}
+			row++;
+		}
+		for (int i = 0; i < DEF_SHIP_COUNT; i++) {
+			syotaLaivaKoordinaatistoon(ships, laivat[i].y, laivat[i].x, laivat[i].dir, laivat[i].size, laivat[i].shipChar);
+		}
+	}
+	return true;
+}
+/*--------------------------------------------------
+*
+* nimi: syotaLaivanTiedot
+* toiminta: Syöttää laivan tiedot 'struct Ship':iin
+* parametri(t): laivat, index, y, x, size, hits, dir, shipChar
+* paluuarvo(t): -
+*
+*--------------------------------------------------*/
+void syotaLaivanTiedot(Ship *laivat, short index, short y, short x, short size, short hits, char dir, char shipChar) {
+	if (y) {
+		laivat[index].y = y;
+	}
+	if (x) {
+		laivat[index].x = x;
+	}
+	if (size) {
+		laivat[index].size = size;
+	}
+	if (hits) {
+		laivat[index].hits = hits;
+	}
+	if (dir) {
+		laivat[index].dir = dir;
+	}
+	if (shipChar) {
+		laivat[index].shipChar = shipChar;
+	}
 }

@@ -35,12 +35,17 @@ void gameLoop();
 void askDefaultShips(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *defShips);
 void printGameStatus(char taulukko[][MAX_X_SIZE], short y, short x, bool useCheat);
 void shoot(char shots[][MAX_X_SIZE], char ships[][MAX_X_SIZE], Ship *laivat, short cols, bool &jatka, bool &cheat_used, short &score);
-short muunnaAmpumiskoordinaatit(std::string coord, short *row, short *col);
+short muunnaKoordinaatit(std::string coord, short *row, short *col);
 void nollaaLaivatJaAmmukset(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *defShips, short laivatCount, short *score);
 bool tarkistaLaivanSuunta(char ships[][MAX_X_SIZE], char dir, short y, short x, short size);
 void syotaLaivaKoordinaatistoon(char ships[][MAX_X_SIZE], short y, short x, char dir, short size, char shipChar);
 void tarkistaOsuma(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short y, short x, short &score);
 void upotaLaiva(char ships[][MAX_X_SIZE], short y, short x, char dir, short size);
 void paljastaLaivat(char ships[][MAX_X_SIZE]);
+void arvoLaivojenSijainti(char ships[][MAX_X_SIZE], Ship *defShips);
+bool tarkistaAloituspiste(char ships[][MAX_X_SIZE], short y, short x, short size);
+void tallennaPelitilanne(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *defShips, short score);
+bool lataaPelitilanne(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short &score);
+void syotaLaivanTiedot(Ship *laivat, short index, short y, short x, short size, short hits, char dir, char shipChar);
 
 #endif // !UPOTUS_H
