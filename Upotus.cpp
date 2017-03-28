@@ -5,6 +5,7 @@
 #include <ctime>
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 using namespace std;
 /*--------------------------------------------------
 *
@@ -49,13 +50,13 @@ void printMenu() { // Prints out the main menu
 *--------------------------------------------------*/
 void gameLoop() { // Handles the game # MAIN LOOP
 	char choice = '0';
-	short score = 0;
 	bool laivat_ok = false;
 	bool keep_playing = true;
 	bool game_finished = true;
 	char shots[MAX_Y_SIZE][MAX_X_SIZE] = { 0 }; // Ammukset / osumat
 	char ships[MAX_Y_SIZE][MAX_X_SIZE] = { 0 }; // Laivat
 	Ship defShips[DEF_SHIP_COUNT]; // Default ships
+	Score score;
 	do {
 		printMenu();
 		bool isValid = false;
@@ -77,7 +78,7 @@ void gameLoop() { // Handles the game # MAIN LOOP
 		// ===
 		if (choice == '1') {
 			// Syötä laivat
-			nollaaLaivatJaAmmukset(ships, shots, defShips, DEF_SHIP_COUNT, &score);
+			nollaaLaivatJaAmmukset(ships, shots, defShips, DEF_SHIP_COUNT, score);
 			askDefaultShips(ships, shots, defShips);
 			laivat_ok = true;
 			game_finished = false;
@@ -88,18 +89,18 @@ void gameLoop() { // Handles the game # MAIN LOOP
 			do {
 				//printGameStatus(shots, MAX_Y_SIZE, MAX_X_SIZE);
 				shoot(shots, ships, defShips, MAX_X_SIZE, jatka_ampumista, cheat_used, score);
-				if (score == DEF_SHIP_COUNT) {
+				if (score.submerged == DEF_SHIP_COUNT) {
 					game_finished = true;
 					printGameStatus(shots, MAX_Y_SIZE, MAX_X_SIZE, false);
-					cout << "Onnittelut! Upotit kaikki vihollisen laivat ja voitit pelin!" << endl;
-					cout << "------------------------------------------------------------" << endl;
+					cout << "ONNITTELUT! UPOTIT KAIKKI VIHOLLISEN LAIVAT JA VOITIT PELIN!" << endl;
+					naytaTilastot(score, defShips);
 					cout << "Tekija: Emil Pirinen (2017)" << endl;
 					cout << "============================================================" << endl << endl;
 				}
 			} while (jatka_ampumista && !game_finished);
 		} else if (choice == '3') {
 			// Arvo laivojen sijainnit
-			nollaaLaivatJaAmmukset(ships, shots, defShips, DEF_SHIP_COUNT, &score);
+			nollaaLaivatJaAmmukset(ships, shots, defShips, DEF_SHIP_COUNT, score);
 			arvoLaivojenSijainti(ships, defShips);
 			laivat_ok = true;
 			game_finished = false;
@@ -149,8 +150,9 @@ void askDefaultShips(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *d
 		string coords;
 		defShips[shipIndex].shipChar = i + 48; // ascii muunnos -> laivan merkki
 		defShips[shipIndex].size = i; // laivan koko
+		defShips[shipIndex].shipName = shipNames[i - 2]; // laivan nimi
 		do {
-			cout << "Anna " << shipNames[i - 2] << " pituisen laivan alkupiste: ";
+			cout << "Anna " << defShips[shipIndex].shipName << " pituisen laivan alkupiste: ";
 			cin >> coords;
 			clearInput();
 			validCoords = muunnaKoordinaatit(coords, &defShips[shipIndex].y, &defShips[shipIndex].x);
@@ -228,11 +230,11 @@ void printGameStatus(char taulukko[][MAX_X_SIZE], short y, short x, bool useChea
 *
 * nimi: shoot
 * toiminta: Hoitaa ampumisen käsittelyn
-* parametri(t): shots, ships, *laivat, cols, &jatka
+* parametri(t): shots, ships, *laivat, cols, &jatka, &cheat_used, &score
 * paluuarvo(t): -
 *
 *--------------------------------------------------*/
-void shoot(char shots[][MAX_X_SIZE], char ships[][MAX_X_SIZE], Ship *laivat, short cols, bool &jatka, bool &cheat_used, short &score) {
+void shoot(char shots[][MAX_X_SIZE], char ships[][MAX_X_SIZE], Ship *laivat, short cols, bool &jatka, bool &cheat_used, Score &score) {
 	string coords;
 	short validCoord;
 	short x, y;
@@ -315,25 +317,20 @@ short muunnaKoordinaatit(string coord, short *row, short *col) {
 *
 * nimi: nollaaLaivatJaAmmukset
 * toiminta: Nollaa laivat, ammukset ja laivojen tiedot
-* parametri(t): ships, shots, *laivat, laivatCount
+* parametri(t): ships, shots, *laivat, laivatCount, &score
 * paluuarvo(t): -
 *
 *--------------------------------------------------*/
-void nollaaLaivatJaAmmukset(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short laivatCount, short *score) {
+void nollaaLaivatJaAmmukset(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short laivatCount, Score &score) {
 	for (int y = 0; y < MAX_Y_SIZE; y++) {
 		for (int x = 0; x < MAX_X_SIZE; x++) {
 			ships[y][x] = ' ';
 			shots[y][x] = ' ';
 		}
 	}
-	*score = 0;
-	for (int i = 0; i < laivatCount; i++) {
-		laivat[i].y = NULL;
-		laivat[i].x = NULL;
-		laivat[i].dir = '0';
-		laivat[i].size = NULL;
-		laivat[i].hits = 0;
-		laivat[i].shipChar = '0';
+	score = { };
+	for (int i = 0; i < DEF_SHIP_COUNT; i++) {
+		laivat[i] = {};
 	}
 }
 /*--------------------------------------------------
@@ -432,11 +429,11 @@ void syotaLaivaKoordinaatistoon(char ships[][MAX_X_SIZE], short y, short x, char
 *
 * nimi: tarkistaOsuma
 * toiminta: Tarkistaa ammutun koordinaatin mahdollisen osuman laivaan
-* parametri(t): ships, shots, *laivat, y, x
+* parametri(t): ships, shots, *laivat, y, x, &score
 * paluuarvo(t): -
 *
 *--------------------------------------------------*/
-void tarkistaOsuma(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short y, short x, short &score) {
+void tarkistaOsuma(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short y, short x, Score &score) {
 	string coords;
 	coords += static_cast<char>(y + 65);
 	coords += static_cast<char>(x + 49);
@@ -444,25 +441,48 @@ void tarkistaOsuma(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *lai
 	if (shots[y][x] == OSUMA || shots[y][x] == HUTI || shots[y][x] == UPONNUT) {
 		cout << endl << "** Olet jo ampunut tahan koordinaattiin! (" << coords << ") **" << endl << endl;
 	} else if (ships[y][x] == '5' || ships[y][x] == '4' || ships[y][x] == '3' || ships[y][x] == '2') {
+		// Yleiset osumalle
 		short k;
 		if (ships[y][x] == '5') { k = 0; }
 		if (ships[y][x] == '4') { k = 1; }
 		if (ships[y][x] == '3') { k = 2; }
 		if (ships[y][x] == '2') { k = 3; }
+		if (laivat[k].hits == 0) { laivat[k].firstHit = score.totalShots + 1; };
 		laivat[k].hits++;
-		//
-		if (laivat[k].hits == laivat[k].size) {
-			// Upota laiva
-			score++;
+		score.totalHits++;
+		if (!score.lastShotWasHit) {
+			score.missStreakEnd = score.totalShots;
+			if ((score.missStreakEnd - score.missStreakStart) >= score.missStreakRecord) {
+				score.missStreakEndRec = score.missStreakEnd;
+				score.missStreakStartRec = score.missStreakStart;
+				score.missStreakRecord = (score.missStreakEndRec - score.missStreakStartRec) + 1;
+			}
+		}
+		score.totalShots++;
+		score.lastShotWasHit = true;
+		// --- //
+		if (laivat[k].hits == laivat[k].size) { // Upota laiva
+			laivat[k].sinkNumber = score.submerged;
+			laivat[k].shotsFromStartToDeath = score.totalShots;
+			laivat[k].lastHit = score.totalShots;
+			score.submerged++;
 			upotaLaiva(shots, laivat[k].y, laivat[k].x, laivat[k].dir, laivat[k].size);
 			cout << endl << "Laukaus kohtaan " << coords << " upotti laivan." << endl << endl;
-		} else {
+		} else { // Merkitse osuma
 			shots[y][x] = OSUMA;
 			cout << endl << "Laukaus kohtaan " << coords << " osui laivaan." << endl << endl;
 		}
-	} else {
+	} else { // Hutilaukaus
 		shots[y][x] = HUTI;
+		score.totalShots++;
+		score.totalMissed++;
 		cout << endl << "Laukaus kohtaan " << coords << " ei osunut." << endl << endl;
+		if (score.lastShotWasHit) {
+			score.missStreakStart = score.totalShots;
+		} else {
+			score.missStreakEnd = score.totalShots;
+		}
+		score.lastShotWasHit = false;
 	}
 }
 /*--------------------------------------------------
@@ -507,16 +527,16 @@ void paljastaLaivat(char ships[][MAX_X_SIZE]) {
 *
 * nimi: arvoLaivojenSijainti
 * toiminta: Arpoo laivojen sijainnin
-* parametri(t): ships
+* parametri(t): ships, *defShips
 * paluuarvo(t): -
 *
 *--------------------------------------------------*/
 void arvoLaivojenSijainti(char ships[][MAX_X_SIZE], Ship *defShips) {
 	srand(time(NULL));
-	syotaLaivanTiedot(defShips, 0, NULL, NULL, 5, NULL, NULL, '5');
-	syotaLaivanTiedot(defShips, 1, NULL, NULL, 4, NULL, NULL, '4');
-	syotaLaivanTiedot(defShips, 2, NULL, NULL, 3, NULL, NULL, '3');
-	syotaLaivanTiedot(defShips, 3, NULL, NULL, 2, NULL, NULL, '2');
+	syotaLaivanTiedot(defShips, 0, "viiden", NULL, NULL, 5, NULL, NULL, '5');
+	syotaLaivanTiedot(defShips, 1, "neljan", NULL, NULL, 4, NULL, NULL, '4');
+	syotaLaivanTiedot(defShips, 2, "kolmen", NULL, NULL, 3, NULL, NULL, '3');
+	syotaLaivanTiedot(defShips, 3, "kahden", NULL, NULL, 2, NULL, NULL, '2');
 	//
 	for (int i = 0; i < DEF_SHIP_COUNT; i++) {
 		bool validStart = false;
@@ -545,8 +565,8 @@ void arvoLaivojenSijainti(char ships[][MAX_X_SIZE], Ship *defShips) {
 *
 * nimi: tarkistaAloituspiste
 * toiminta: Tarkistaa laivan syöttämisen aloituspisteen kelvollisuuden
-* parametri(t): ships
-* paluuarvo(t): -
+* parametri(t): ships, y, x, size
+* paluuarvo(t): boolean (true or false)
 *
 *--------------------------------------------------*/
 bool tarkistaAloituspiste(char ships[][MAX_X_SIZE], short y, short x, short size) {
@@ -557,8 +577,7 @@ bool tarkistaAloituspiste(char ships[][MAX_X_SIZE], short y, short x, short size
 	//
 	if (p || i || e || l) {
 		return true;
-	}
-	else {
+	} else {
 		return false;
 	}
 }
@@ -566,65 +585,145 @@ bool tarkistaAloituspiste(char ships[][MAX_X_SIZE], short y, short x, short size
 *
 * nimi: tallennaPelitilanne
 * toiminta: Tallentaa pelitilanteen erilliseen tekstitiedostoon
-* parametri(t): ships, shots
+* parametri(t): ships, shots, *laivat, score
 * paluuarvo(t): -
 *
 *--------------------------------------------------*/
-void tallennaPelitilanne(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short score) {
-	ofstream coordsToFile("pelitilanne.txt", ios::out);
-	if (!coordsToFile) {
-		cerr << "VIRHE! Tiedostoa ei voi muokata tai sita ei voitu luoda!" << endl;
+void tallennaPelitilanne(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, Score score) {
+	bool korvaa = false;
+	char syote;
+	if (ifstream("pelitilanne.txt")) {
+		cout << "Edellinen tallennus loydetty! Haluatko varmasti korvata aiemman tallennuksen uudella? (k/e) ";
+		cin >> syote;
+		clearInput();
+		if (syote == 'k' || syote == 'K') {
+			korvaa = true;
+		} else {
+			korvaa = false;
+		}
 	} else {
-		coordsToFile << "# === PELIALUE ===" << endl;
-		coordsToFile << "X:" << MAX_X_SIZE << endl;
-		coordsToFile << "Y:" << MAX_Y_SIZE << endl;
-		coordsToFile << "# === TILASTOT ===" << endl;
-		coordsToFile << "Upotetut:" << score << endl;
-		coordsToFile << "# === LAIVATIEDOT === (y, x, size, hits, dir, shipchar)" << endl;
-		for (int i = 0; i < DEF_SHIP_COUNT; i++) {
-			coordsToFile << i << ":" << laivat[i].y << "." << laivat[i].x << "." << laivat[i].size << "." << laivat[i].hits << "." << laivat[i].dir << "." << laivat[i].shipChar << endl;
+		korvaa = true;
+	}
+
+	if (korvaa) {
+		ofstream coordsToFile("pelitilanne.txt", ios::out);
+		if (!coordsToFile) {
+			cerr << "VIRHE! Tiedostoa ei voi muokata tai sita ei voitu luoda!" << endl;
 		}
-		coordsToFile << "# === SHOTS ===" << endl;
-		for (int y = 0; y < MAX_Y_SIZE; y++) {
-			for (int x = 0; x < MAX_X_SIZE; x++) {
-				coordsToFile << shots[y][x] << ".";
+		else {
+			coordsToFile << "# === PELIALUE ===" << endl;
+			coordsToFile << "X:" << MAX_X_SIZE << endl;
+			coordsToFile << "Y:" << MAX_Y_SIZE << endl;
+			coordsToFile << "# === TILASTOT ===" << endl;
+			coordsToFile << "totalShots:" << score.totalShots << endl;
+			coordsToFile << "totalMissed:" << score.totalMissed << endl;
+			coordsToFile << "totalHits:" << score.totalHits << endl;
+			coordsToFile << "missStreakStart:" << score.missStreakStart << endl;
+			coordsToFile << "missStreakStartRec:" << score.missStreakStartRec << endl;
+			coordsToFile << "missStreakEnd:" << score.missStreakEnd << endl;
+			coordsToFile << "missStreakEndRec:" << score.missStreakEndRec << endl;
+			coordsToFile << "lastShotWasHit:" << score.lastShotWasHit << endl;
+			coordsToFile << "missStreakRecord:" << score.missStreakRecord << endl;
+			coordsToFile << "submerged:" << score.submerged << endl;
+			coordsToFile << "# === LAIVATIEDOT === (index:y.x.size.hits.shotsFromStartToDeath.sinkNumber.firstHit.lastHit.dir.shipchar.shipName)" << endl;
+			for (int i = 0; i < DEF_SHIP_COUNT; i++) {
+				coordsToFile << i << ":" << laivat[i].y << "." << laivat[i].x << "." << laivat[i].size << "." << laivat[i].hits << ".";
+				coordsToFile << laivat[i].shotsFromStartToDeath << "." << laivat[i].sinkNumber << "." << laivat[i].firstHit << ".";
+				coordsToFile << laivat[i].lastHit << "." << laivat[i].dir << "." << laivat[i].shipChar << "." << laivat[i].shipName << endl;
 			}
-			coordsToFile << endl;
+			coordsToFile << "# === SHOTS ===" << endl;
+			for (int y = 0; y < MAX_Y_SIZE; y++) {
+				for (int x = 0; x < MAX_X_SIZE; x++) {
+					coordsToFile << shots[y][x] << ".";
+				}
+				coordsToFile << endl;
+			}
+			cout << "Pelitilanne tallennettu!" << endl;
 		}
-		cout << "Pelitilanne tallennettu!" << endl;
+	}
+	else {
+		cout << "Tallennusta ei suoritettu!" << endl;
 	}
 }
 /*--------------------------------------------------
 *
 * nimi: lataaPelitilanne
 * toiminta: Lataa pelitilanteen erillisestä tekstitiedostosta
-* parametri(t): -
+* parametri(t): ships, shots, *laivat, &score
 * paluuarvo(t): ships, shots
 *
 *--------------------------------------------------*/
-bool lataaPelitilanne(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, short &score) {
+bool lataaPelitilanne(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *laivat, Score &score) {
 	ifstream coordsFromFile("pelitilanne.txt", ios::in);
 	if (!coordsFromFile) {
 		cerr << "Tallennettua pelia ei voitu avata tai tiedostoa ei loydy!" << endl;
 		return false;
 	} else {
-		nollaaLaivatJaAmmukset(ships, shots, laivat, DEF_SHIP_COUNT, &score);
+		nollaaLaivatJaAmmukset(ships, shots, laivat, DEF_SHIP_COUNT, score);
 		string line;
 		short row = 1;
 		while (getline(coordsFromFile, line))
 		{
+			size_t posDoubleDot = line.find(':') + 1;
 			if (row == 5) {
-				score = static_cast<short>((line[9]) - 48);
-			}
-			if (row >= 7 && row <= 10) {
-				//syotaLaivanTiedot(laivat, line[0], line[2], line[4], line[6], line[8], static_cast<char>(line[10]), static_cast<char>(line[12]));
-				syotaLaivanTiedot(laivat, static_cast<short>((line[0])-48), static_cast<short>((line[2]) - 48), static_cast<short>((line[4]) - 48), static_cast<short>((line[6]) - 48), static_cast<short>((line[8]) - 48), static_cast<char>(line[10]), static_cast<char>(line[12]));
-			}
-			if (row >= 12) {
-				short y = row - 12;
+				score.totalShots = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row == 6) {
+				score.totalMissed = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row == 7) {
+				score.totalHits = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row == 8) {
+				score.missStreakStart = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row == 9) {
+				score.missStreakStartRec = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row == 10) {
+				score.missStreakEnd = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row == 11) {
+				score.missStreakEndRec = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row == 12) {
+				score.lastShotWasHit = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row == 13) {
+				score.missStreakRecord = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row == 14) {
+				score.submerged = stringNumberToShort(line.substr(posDoubleDot));
+			} else if (row >= 16 && row <= 19) {
+				short index = stringNumberToShort(line.substr(0, 1));
+				string new_line = line.substr(posDoubleDot);
+				laivat[index].y = stringNumberToShort(new_line);
+				size_t posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].x = stringNumberToShort(new_line);
+				posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].size = stringNumberToShort(new_line);
+				posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].hits = stringNumberToShort(new_line);
+				posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].shotsFromStartToDeath = stringNumberToShort(new_line);
+				posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].sinkNumber = stringNumberToShort(new_line);
+				posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].firstHit = stringNumberToShort(new_line);
+				posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].lastHit = stringNumberToShort(new_line);
+				posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].dir = new_line[0];
+				posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].shipChar = new_line[0];
+				posSingleDot = new_line.find('.') + 1;
+				new_line = new_line.substr(posSingleDot);
+				laivat[index].shipName = new_line;
+			} else if (row >= 21) {
 				short loc = 0;
-				for (int i = 0; i < MAX_Y_SIZE; i++) {
-					shots[y][i] = line[loc];
+				short y = row - 21;
+				for (int i = 0; i < MAX_X_SIZE; i++) {
+					shots[y][i] = line.at(loc);
 					loc = loc + 2;
 				}
 			}
@@ -640,11 +739,14 @@ bool lataaPelitilanne(char ships[][MAX_X_SIZE], char shots[][MAX_X_SIZE], Ship *
 *
 * nimi: syotaLaivanTiedot
 * toiminta: Syöttää laivan tiedot 'struct Ship':iin
-* parametri(t): laivat, index, y, x, size, hits, dir, shipChar
+* parametri(t): *laivat, index, name, y, x, size, hits, dir, shipChar
 * paluuarvo(t): -
 *
 *--------------------------------------------------*/
-void syotaLaivanTiedot(Ship *laivat, short index, short y, short x, short size, short hits, char dir, char shipChar) {
+void syotaLaivanTiedot(Ship *laivat, short index, string name, short y, short x, short size, short hits, char dir, char shipChar) {
+	if (name[0]) {
+		laivat[index].shipName = name;
+	} 
 	if (y) {
 		laivat[index].y = y;
 	}
@@ -663,4 +765,64 @@ void syotaLaivanTiedot(Ship *laivat, short index, short y, short x, short size, 
 	if (shipChar) {
 		laivat[index].shipChar = shipChar;
 	}
+}
+/*--------------------------------------------------
+*
+* nimi: naytaTilastot
+* toiminta: Näyttää tilastotietoja pelistä
+* parametri(t): score, *laivat
+* paluuarvo(t): -
+*
+*--------------------------------------------------*/
+void naytaTilastot(Score score, Ship *laivat) {
+	cout << "============================================================" << endl;
+	cout << "Kokonaislaukaukset: " << score.totalShots << endl;
+	cout << "Hutilaukaukset: " << score.totalMissed << " (osumaprosentti: " << setprecision(4) << ((static_cast<double>(score.totalHits) / static_cast<double>(score.totalShots)) * 100) << "%)" << endl;
+	cout << "Upottamiseen tarvitut ammukset alusta alkaen:" << endl;
+	for (int i = 0; i < DEF_SHIP_COUNT; i++) {
+		cout << "=> " << laivat[i].shipName << " pituinen: " << laivat[i].shotsFromStartToDeath << " laukausta" << endl;
+	}
+	cout << "Uppoamisjarjestys: (laukaukset 1. osuman jalkeen)" << endl;
+	for (int i = 0; i < DEF_SHIP_COUNT; i++) {
+		for (int z = 0; z < DEF_SHIP_COUNT; z++) {
+			if (laivat[z].sinkNumber == i) {
+				cout << "=> " << i + 1 << ". " << laivat[z].shipName << " pituinen: (" << (laivat[z].lastHit - laivat[z].firstHit) + 1 << " laukausta)" << endl;
+			}
+		}
+	}
+	short powerShip = 0;
+	short power = 999;
+	for (int i = 0; i < DEF_SHIP_COUNT; i++) {
+		if (((laivat[i].lastHit - laivat[i].firstHit) / laivat[i].size) <= power) {
+			power = (laivat[i].lastHit - laivat[i].firstHit) / laivat[i].size;
+			powerShip = i;
+		}
+	}
+	cout << "Tehokkain osumisjakso: laukaukset " << laivat[powerShip].firstHit << ". - " << laivat[powerShip].lastHit << ". joilla upotettiin " << laivat[powerShip].size << ":n pituinen laiva." << endl;
+	cout << "Pisin ohilaukausjakso: " << score.missStreakRecord; 
+	if (score.missStreakRecord == 0) {
+		cout << " ohilaukausta. Olet varsinainen tarkka-ampuja!" << endl;
+	} else if (score.missStreakRecord == 1) {
+		cout << " ohilaukaus, " << score.missStreakStartRec << ". ammunta." << endl;
+	} else {
+		cout << " ohilaukausta, valilla " << score.missStreakStartRec << ". - " << score.missStreakEndRec << "." << endl;
+	}
+	cout << "============================================================" << endl;
+}
+/*--------------------------------------------------
+*
+* nimi: stringNumberToShort
+* toiminta: Muuntaa tekstimuotoisen numeron short-muotoiseksi
+* parametri(t): x
+* paluuarvo(t): y
+*
+*--------------------------------------------------*/
+short stringNumberToShort(string x) {
+	short y;
+	if (isdigit(x[0]) && !isdigit(x[1])) {
+		y = static_cast<short>(x[0]) - 48;
+	} else if (isdigit(x[0]) && isdigit(x[1])) {
+		y = ((static_cast<short>(x[0]) - 48) * 10) + (static_cast<short>(x[1]) - 48);
+	}
+	return y;
 }
